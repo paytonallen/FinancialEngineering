@@ -117,10 +117,10 @@ def annual_vol(r,periods):
     return r.std()*np.sqrt(periods)
 
 
-def Sharpe_Ratio(r,rfr=0.05,periods):
+def Sharpe_Ratio(r,rfr=0.05,periods): 
     
     rfr_pp = (1+rfr)*(1/periods)-1
-    excess_ret = r - rff_pp
+    excess_ret = r - rfr_pp
     rets = annual_return(excess_ret,periods)
     ann_vol = annual_vol(r,periods)
     return rets/ann_vol
@@ -129,13 +129,13 @@ def portfolio_return(weights,returns):
     """
     Weights --> Returns
     """
-    return weight.T @ returns
+    return weights.T @ returns
 
 def portfolio_vol(weights,covmat):
     """
     Portfolio Volatility
     """
-    return(weight.T @ covmat @ weights)**0.5
+    return(weights.T @ covmat @ weights)**0.5
 def minimize_vol(target_return,er,cov):
     n = er.shape[0]
     init_guess = np.repeat(1/n,n)
@@ -154,7 +154,7 @@ def optimal_weights(n_points,er,cov):
     weights = [minimize_vol(target_return,er,cov)for target_return in target_rs]
     return weights
 
-def MaxSharpeRatio(riskfreerate=0.05,er,cov):
+def MaxSharpeRatio(riskfree_rate=0.05,er,cov):
     n = er.shape[0]
     init_guess = np.repeat(1/n,n)
     bounds = ((0.0,1.0),)*n
@@ -186,39 +186,40 @@ def plot_ef(n_points,er,cov,show_cml=False,style='.-',riskfree_rate = 0.05,show_
     """
     Plots N-Asset efficient Frontier
     """
-weights = optimal_weights(n_points,er,cov)
-rets = [portfolio_return(w,er) for w in weights]
-vols = [portfolio_vol(w,cov) for w in weights]
-ef = pd.DataFrame({'Returns':rets,
-                   'Volatilty':vols})
-ax = ef.plot.line(x = 'Volatilty',y = 'Returns',style =style)
-if show_ew:
-    n = er.shape[0]
-    w_ew = np.repeat(1/n,n)
-    r_ew = portfolio_return(w_ew,er)
-    vol_ew = portfolio_vol(w_ew,cov)
-    ax.plot([vol_ew],[r_ew],color = 'midnightblue',marker = 'o',markersize =10)
+    weights = optimal_weights(n_points,er,cov)
+    rets = [portfolio_return(w,er) for w in weights]
+    vols = [portfolio_vol(w,cov) for w in weights]
+    ef = pd.DataFrame({'Returns':rets,
+                    'Volatilty':vols})
+    ax = ef.plot.line(x = 'Volatilty',y = 'Returns',style =style)
+    if show_ew:
+        n = er.shape[0]
+        w_ew = np.repeat(1/n,n)
+        r_ew = portfolio_return(w_ew,er)
+        vol_ew = portfolio_vol(w_ew,cov)
+        ax.plot([vol_ew],[r_ew],color = 'midnightblue',marker = 'o',markersize =10)
 
-if show_gmv:
-    w_gmv = gmv(cov)
-    r_gmv = portfolio_return(w,gmv,er)
-    vol_gmv= portfolio_vol(w_gmv,cov)
-    ax.plot([vol_gmv],[r_gmv],color='goldenrod',marker = 'o',markersize = 10)
+    if show_gmv:
+        w_gmv = gmv(cov)
+        r_gmv = portfolio_return(w_gmv,er)
+        vol_gmv= portfolio_vol(w_gmv,cov)
+        ax.plot([vol_gmv],[r_gmv],color='goldenrod',marker = 'o',markersize = 10)
 
-if show_cml:
-    ax.set_xlim(left=0)
-    rf = 0.03 
-    w_msr = MaxSharpeRatio(rf,er,cov)
-    r_msr = portfolio_return(w_msr,er)
-    vol_msr = portfolio_vol(w_msr,cov)
+    if show_cml:
+        ax.set_xlim(left=0)
+        rf = 0.03 
+        w_msr = MaxSharpeRatio(rf,er,cov)
+        r_msr = portfolio_return(w_msr,er)
+        vol_msr = portfolio_vol(w_msr,cov)
 
-    cml_x = [0,vol_msr]
-    ax.plot(cml_x,cml_y,color'red',marker='o',linestyle='dashed',marker = 12,linewidth=2)
-    return ax
+        cml_x = [0,vol_msr]
+        cml_y = [riskfree_rate,r_msr]
+        ax.plot(cml_x,cml_y,color='red',marker='o',linestyle='dashed',marker = 12,linewidth=2)
+        return ax
 from sklearn.linear_model import LinearRegression
 
 def LR(X,y):
-    reg LinearRegression().fit(X.reshape(-1,1),y.reshape(-1,1))
+    reg = LinearRegression().fit(X.reshape(-1,1),y.reshape(-1,1))
     return reg.coef_,reg.intercept_
 
 
