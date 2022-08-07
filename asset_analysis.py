@@ -154,29 +154,7 @@ def optimal_weights(n_points,er,cov):
     weights = [minimize_vol(target_return,er,cov)for target_return in target_rs]
     return weights
 
-def MaxSharpeRatio(riskfree_rate=0.05,er,cov):
-    n = er.shape[0]
-    init_guess = np.repeat(1/n,n)
-    bounds = ((0.0,1.0),)*n
-    weights_sum_to_1 = {
-        'type':'eq',
-        'fun': lambda weights: np.sum(weights)-1
-    }
-    def neg_sharpe_ratio(weights,riskfree_rate,er,cov):
-        """
-        returns neg sharpe ratio
-        """
-        r=portfolio_return(weights,er)
-        vol= portfolio_vol(weights,cov)
-        return -(r-riskfree_rate)/vol
 
-    results = minimize(neg_sharpe_ratio,init_guess,
-                       args = (riskfree_rate,er,cov,),method='SLSQP',
-                       options={'disp':False},
-                       constraints=(weights_sum_to_1),
-                       bounds=bounds
-                      )
-    return results.x
 def gmv(cov):
     n = cov.shape[0]
     return MaxSharpeRatio(0,np.repeat(1,n),cov)
