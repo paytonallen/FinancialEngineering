@@ -1,5 +1,9 @@
     #import modules needed
-from statistics import LinearRegression
+from os import statvfs
+from tracemalloc import Statistic
+
+
+
 import numpy as np
 import matplotlib as plt
 from pandas_datareader import data as wb
@@ -16,12 +20,14 @@ def AssetReturns(PortfolioAssets):
 #create empyty dataset
     hist_data = {}
     for asset in Assets:
-        df = yf.download(asset, start = 2000-1-1)
+        df = yf.download(asset,start = '2010-01-01')
         hist_data[asset] = df['Adj Close']
     df_returns = np.log(df/df.shift())
     df_returns.index = pd.to_datetime(df_returns.index).to_period('W-Fri').last()
     df.returns = df_returns.dropna()
     return df_returns
+
+
 
 #view the potential drawdowns of adding an asset to your portfolio
 def drawdown(r: pd.Series):
@@ -117,7 +123,7 @@ def annual_vol(r,periods):
     return r.std()*np.sqrt(periods)
 
 
-def Sharpe_Ratio(r,rfr=0.05,periods): 
+def Sharpe_Ratio(r,rfr=0.05,periods=52): 
     
     rfr_pp = (1+rfr)*(1/periods)-1
     excess_ret = r - rfr_pp
@@ -142,7 +148,7 @@ def minimize_vol(target_return,er,cov):
     bounds =((0.0,1.0),) *n
     return_is_target = {'type':'eq','fun':lambda weights,er:target_return-portfolio_return(weights,er)}
     weights_sum_to_1 = {'type':'eq','fun':lambda weights: np.sum(weights)-1}
-    results = minimize(portfolio_vol,init_guess,args = (cov,),method = 'SLSQP',options{'disp':False},constraints = (return_is_target,weights_sum_to_1),bounds= bounds)
+    results = minimize(portfolio_vol,init_guess,args = (cov,),method = 'SLSQP',options={'disp':False},constraints = (return_is_target,weights_sum_to_1),bounds= bounds)
     return results.x
 
 def optimal_weights(n_points,er,cov):
@@ -183,7 +189,7 @@ def msr(riskfree_rate,er,cov):
     return results.x
 def gmv(cov):
     n = cov.shape[0]
-    return MaxSharpeRatio(0,np.repeat(1,n),cov)
+    return msr(0,np.repeat(1,n),cov)
                 
 def plot_ef(n_points,er,cov,show_cml=False,style='.-',riskfree_rate = 0.05,show_ew=False,show_gmv = False):
     
@@ -212,13 +218,13 @@ def plot_ef(n_points,er,cov,show_cml=False,style='.-',riskfree_rate = 0.05,show_
     if show_cml:
         ax.set_xlim(left=0)
         rf = 0.03 
-        w_msr = MaxSharpeRatio(rf,er,cov)
+        w_msr = msr(rf,er,cov)
         r_msr = portfolio_return(w_msr,er)
         vol_msr = portfolio_vol(w_msr,cov)
 
         cml_x = [0,vol_msr]
         cml_y = [riskfree_rate,r_msr]
-        ax.plot(cml_x,cml_y,color='red',marker='o',linestyle='dashed',marker = 12,linewidth=2)
+        ax.plot(cml_x,cml_y,color='red',marker='o',linestyle='dashed',markersize = 12,linewidth=2)
         return ax
 from sklearn.linear_model import LinearRegression
 
