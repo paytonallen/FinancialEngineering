@@ -1,6 +1,4 @@
-    #import modules needed
-from os import statvfs
-from tracemalloc import Statistic
+#import modules needed
 
 
 
@@ -15,27 +13,28 @@ import scipy.stats
 
 
 #Function for getting asset returns you want for your portfolio
-def AssetReturns(PortfolioAssets):
-    Assets = [PortfolioAssets]
-#create empyty dataset
-    hist_data = {}
-    for asset in Assets:
-        df = yf.download(asset,start = '2010-01-01')
-        hist_data[asset] = df['Adj Close']
-    df_returns = np.log(df/df.shift())
-    df_returns.index = pd.to_datetime(df_returns.index).to_period('W-Fri').last()
-    df.returns = df_returns.dropna()
+def AssetReturns(*args,date):
+    assets=[*args]
+    portfolio ={}
+    for asset in assets:
+        df = yf.download(asset,start=date)
+        portfolio[asset] = df['Adj Close']
+    portfolio = pd.concat(portfolio,axis =1)
+        
+    df_returns = portfolio/portfolio.shift()-1
+    df_returns = df_returns.resample('W-FRI').last()
+    df_returns = df_returns.dropna()
     return df_returns
 
 
 
 #view the potential drawdowns of adding an asset to your portfolio
-def drawdown(r: pd.Series):
+def drawdown(r:pd.Series):
     'Creates wealth index, Previous peaks, and Percentage Drawdown'
     wealth = 1*(1+r).cumprod()
     previous_peaks= wealth.cummax()
     drawdown = (wealth - previous_peaks)/previous_peaks
-    pd.DataFrame({'Weatlh':wealth,
+    return pd.DataFrame({'Weatlh':wealth,
                   'Peaks': previous_peaks,
                   'Drawdown': drawdown})
 
@@ -142,46 +141,46 @@ def portfolio_vol(weights,covmat):
     Portfolio Volatility
     """
     return(weights.T @ covmat @ weights)**0.5
-def minimize_vol(target_return,er,cov):
-    n = er.shape[0]
+def minimize_vol(target_return,r,cov):
+    n = r.shape[0]
     init_guess = np.repeat(1/n,n)
     bounds =((0.0,1.0),) *n
-    return_is_target = {'type':'eq','fun':lambda weights,er:target_return-portfolio_return(weights,er)}
+    return_is_target = {'type':'eq','args':(r,),'fun':lambda weights,r:target_return-portfolio_return(weights,r)}
     weights_sum_to_1 = {'type':'eq','fun':lambda weights: np.sum(weights)-1}
     results = minimize(portfolio_vol,init_guess,args = (cov,),method = 'SLSQP',options={'disp':False},constraints = (return_is_target,weights_sum_to_1),bounds= bounds)
     return results.x
 
-def optimal_weights(n_points,er,cov):
+def optimal_weights(n_points,r,cov):
     """
     Optimal asset weights based on minimizing the variance of a portfolio
     """
 
-    target_rs = np.linspace(er.min(),er.max(),n_points)
-    weights = [minimize_vol(target_return,er,cov)for target_return in target_rs]
+    target_rs = np.linspace(r.min(),r.max(),n_points)
+    weights = [minimize_vol(target_return,r,cov)for target_return in target_rs]
     return weights
 
-def msr(riskfree_rate,er,cov):
+def msr(riskfree_rate,r,cov):
     """
-    Returns weights of the portfoli othat five max sharpe ratio given rfr and er and a covmat
+    Returns weights of the portfolio that five max sharpe ratio given rfr and er and a covmat
     """
-    n = er.shape[0]
+    n = r.shape[0]
     init_guess = np.repeat(1/n,n)
     bounds = ((0.0,1.0),)*n
     weights_sum_to_1 = {
         'type':'eq',
         'fun': lambda weights: np.sum(weights)-1
     }
-    def neg_sharpe_ratio(weights,riskfree_rate,er,cov):
+    def neg_sharpe_ratio(weights,riskfree_rate,r,cov):
         """
         returns neg sharpe ratio
         """
-        r=portfolio_return(weights,er)
+        r=portfolio_return(weights,r)
         vol= portfolio_vol(weights,cov)
         return -(r-riskfree_rate)/vol
     
     
     results = minimize(neg_sharpe_ratio,init_guess,
-                       args = (riskfree_rate,er,cov,),method='SLSQP',
+                       args = (riskfree_rate,r,cov,),method='SLSQP',
                        options={'disp':False},
                        constraints=(weights_sum_to_1),
                        bounds=bounds
@@ -191,40 +190,41 @@ def gmv(cov):
     n = cov.shape[0]
     return msr(0,np.repeat(1,n),cov)
                 
-def plot_ef(n_points,er,cov,show_cml=False,style='.-',riskfree_rate = 0.05,show_ew=False,show_gmv = False):
-    
+def plot_ef(n_points,r,cov,show_cml=False,style='.-',riskfree_rate=0,show_ew=False, show_gmv=False):
     """
-    Plots N-Asset efficient Frontier
+    Plots N-Asset efficient frontier
     """
-    weights = optimal_weights(n_points,er,cov)
-    rets = [portfolio_return(w,er) for w in weights]
+    weights = optimal_weights(n_points,r,cov)
+    rets = [portfolio_return(w,r) for w in weights]
     vols = [portfolio_vol(w,cov) for w in weights]
-    ef = pd.DataFrame({'Returns':rets,
-                    'Volatilty':vols})
-    ax = ef.plot.line(x = 'Volatilty',y = 'Returns',style =style)
+    ef = pd.DataFrame({
+        'Returns': rets,
+        'Volatility':vols
+    })
+    ax=ef.plot.line(x = 'Volatility',y='Returns',style=style)
     if show_ew:
-        n = er.shape[0]
-        w_ew = np.repeat(1/n,n)
-        r_ew = portfolio_return(w_ew,er)
+        n=r.shape[0]
+        w_ew= np.repeat(1/n,n)
+        r_ew = portfolio_return(w_ew,r)
         vol_ew = portfolio_vol(w_ew,cov)
-        ax.plot([vol_ew],[r_ew],color = 'midnightblue',marker = 'o',markersize =10)
-
+        ax.plot([vol_ew],[r_ew],color='midnightblue',marker='o',markersize=10)
+    
     if show_gmv:
-        w_gmv = gmv(cov)
-        r_gmv = portfolio_return(w_gmv,er)
-        vol_gmv= portfolio_vol(w_gmv,cov)
-        ax.plot([vol_gmv],[r_gmv],color='goldenrod',marker = 'o',markersize = 10)
-
+        w_gmv =gmv(cov)
+        r_gmv = portfolio_return(w_gmv,r)
+        vol_gmv = portfolio_vol(w_gmv,cov)
+        ax.plot([vol_gmv],[r_gmv],color='goldenrod',marker='o',markersize=10)
+    
     if show_cml:
         ax.set_xlim(left=0)
-        rf = 0.03 
-        w_msr = msr(rf,er,cov)
-        r_msr = portfolio_return(w_msr,er)
-        vol_msr = portfolio_vol(w_msr,cov)
+        rf = 0.03
+        w_msr=msr(rf,er,cov)
+        r_msr=portfolio_return(w_msr,r)
+        vol_msr= portfolio_vol(w_msr,cov)
 
-        cml_x = [0,vol_msr]
-        cml_y = [riskfree_rate,r_msr]
-        ax.plot(cml_x,cml_y,color='red',marker='o',linestyle='dashed',markersize = 12,linewidth=2)
+        cml_x=[0,vol_msr]
+        cml_y=[riskfree_rate,r_msr]
+        ax.plot(cml_x,cml_y,color="red",marker='o',linestyle='dashed',markersize=12,linewidth=2)
         return ax
 from sklearn.linear_model import LinearRegression
 
