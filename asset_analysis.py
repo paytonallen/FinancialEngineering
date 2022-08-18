@@ -1,7 +1,7 @@
 #import modules needed
 
 
-
+import ipywidgets as widgets
 import numpy as np
 import matplotlib as plt
 from pandas_datareader import data as wb
@@ -218,7 +218,7 @@ def plot_ef(n_points,r,cov,show_cml=False,style='.-',riskfree_rate=0,show_ew=Fal
     if show_cml:
         ax.set_xlim(left=0)
         rf = 0.03
-        w_msr=msr(rf,er,cov)
+        w_msr=msr(rf,r,cov)
         r_msr=portfolio_return(w_msr,r)
         vol_msr= portfolio_vol(w_msr,cov)
 
@@ -232,12 +232,95 @@ def LR(X,y):
     reg = LinearRegression().fit(X.reshape(-1,1),y.reshape(-1,1))
     return reg.coef_,reg.intercept_
 
-
-
-
-
+#DownSideProtection Constant 
+def run_cppi(r, safe_r = None, m = 3, start = 1000,floor = 0.8,riskfree_rate = 0.03,drawdown=None):
+    dates = r.index
+    n_steps = len(dates)
+    account_value = start
+    floor_value = start*floor
+    peak = start
+    if isinstance(r,pd.Series):
+        r = pd.Dataframe(r,columns['R'])
+        
+    if safe_r is None:
+        safe_r = pd.DataFrame().reindex_like(r)
+        safe_r.values[:] = riskfree_rate/12
+    account_history = pd.DataFrame().reindex_like(r)
+    cushion_history = pd.DataFrame().reindex_like(r)
+    risky_w_history = pd.DataFrame().reindex_like(r)
     
+    for step in range(n_steps):
+        if drawdown is not None:
+            peak = np.maximum(peak,account_value)
+            floor_value = peak*(1-drawdown)
+        cushion = (account_value-floor_value)/account_value
+        risky_w = m*cushion
+        risky_w = np.minimum(risky_w,1)
+        risky_w = np.maximum(risky_w,0)
+        safe_w = 1-risky_w
+        risky_allocation = account_value * risky_w
+        safe_allocation = account_value * safe_w
+        #update account value for this timestamp
+        account_value = risky_allocation*(1+r.iloc[step])+safe_allocation*(1+safe_r.iloc[step])
+        #save values to look at history and plot
+        cushion_history.iloc[step] = cushion
+        risky_w_history.iloc[step] = risky_w
+        account_history.iloc[step] = account_value
+    risky_wealth = start*(1+r).cumprod()
+    backtest_result = {
+        'Wealth': account_history,
+        'Risky Wealth': risky_wealth,
+        'RiskBudget': cushion_history,
+        'Risky Allocation': risky_w_history,
+        'm':m,
+        'start':start,
+        'floor':floor,
+        'r':r,
+        'safe_r': safe_r
+    }
+    return backtest_result
 
+
+def gbm(n_years = 10, n_scenarios = 1000, mu = 0.07, sigma = 0.15,steps_per_year = 252, s_0 = 100.0,prices = True):
+    """
+    Geometric Brownian Motion Model
+    """
+    delta_time = 1/steps_per_year
+    n_steps = int(n_years*steps_per_year) +1
+    rets_plus_1 = np.random.normal(loc = (1+mu)**delta_time, scale = (sigma*np.sqrt(delta_time)),size=(n_steps,n_scenarios))
+    rets_plus_1[0]=1
+    
+    prices = s_0*pd.DataFrame(rets_plus_1).cumprod() 
+    return prices
+
+
+
+
+##Double Scalar Issue with model, please advise, will continue to work on at later date. 
+def show_cppi(n_scenarios=50,mu=0.07,sigma=0.15,m=3,floor = 0.,riskfree_rate=0.03,y_max=100):
+    
+    start = 100
+    sim_rets = gbm(n_scenarios=n_scenarios,mu=mu,sigma=sigma,prices = False,steps_per_year = 252)
+    risky_r = pd.DataFrame(sim_rets)
+    
+    btr = run_cppi(r = pd.DataFrame(risky_r),riskfree_rate = riskfree_rate,m=m,start=start,floor=floor)
+    wealth = btr['Wealth']
+    y_max = wealth.values.max()*y_max/100
+    terminal_wealth = wealth.iloc[-1]
+    ax = wealth.plot(legend=False,alpha = 0.2,color='indianred',figsize=(12,6))
+    ax.axhline(y=start,ls=':',color='black')
+    ax.axhline(y=start*floor,ls=':',color = 'red')
+cppi_controls = widgets.interactive(show_cppi,
+                                   n_scenarios = widgets.IntSlider(min=1,max=1000,step=5,value=50),
+                                   mu = (0.,+.2,0.01),
+                                   sigma=(0,0.3,.05),
+                                   floor = (0,2,0.1),
+                                   m = (1,5,.5),
+                                   riskfree_rate=(0,0.1,0.01),
+                                   y_max = widgets.IntSlider(min=0,max=100,step=1,value=100,
+                                                            description="zoom y axis")
+)
+    
 
 
 
