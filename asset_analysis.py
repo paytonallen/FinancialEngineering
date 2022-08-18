@@ -1,6 +1,6 @@
 #import modules needed
 
-
+from IPython.display import display
 import ipywidgets as widgets
 import numpy as np
 import matplotlib as plt
@@ -323,10 +323,34 @@ cppi_controls = widgets.interactive(show_cppi,
     
 
 
+## Present Value of Liabilities and the Funding ration
 
 
+def discount(t,r):
+    return (1+r)**(-t)
 
-    
+def pv(l,r):
+    """
+    computes pv of a sequence of liabilities
+    l in indexed by the time and the values are the amounts of each liability
+    returns the pv of the sequence
+    """
+    dates = l.index
+    discounts = discount(dates,r)
+    return (discounts*l).sum()
 
+def funding_ratio(assets,liabilities,r=0.03):
+    """
+    computes the funding ratio of some assets given liabilities and interest rate
+    """
+    return assets/pv(liabilities,r)
+
+def show_funding_ratio(assets,r):
+
+    fr = funding_ratio(assets,liabilities,r)
+    print(f'{fr*100:.2f}')
+
+controls = widgets.interactive(show_funding_ratio,assets = widgets.IntSlider(min=1,max=10,step=1,value = 5),r=(0,.20,.01))
+display(controls)
 
 
