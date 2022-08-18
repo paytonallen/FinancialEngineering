@@ -13,7 +13,7 @@ class BBStrategy():
         self.symbol = symbol
         self.SMA = SMA
         self.dev = dev
-        self.start - start
+        self.start = start
         self.end = end
         self.tc = tc
 
@@ -104,6 +104,6 @@ class BBStrategy():
         """
         opt = brute(self.update_and_run,(SMA_range,dev_range),finish = None)
         return opt, -self.update_and_run(opt)
-        
+
 
 
