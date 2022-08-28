@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet 
 from sklearn.metrics import mean_absolute_error, r2_score, explained_variance_score, mean_squared_error
-from sklearn.ensemble import BaggingRegressor
+from sklearn.ensemble import BaggingRegressor, RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 
 
@@ -56,6 +56,9 @@ class BaggingRegressorModel(LinearRegressionModel):
 class GradientBoostModel(LinearRegressionModel):
     def get_model(self):
         return GradientBoostingRegressor(n_estimators=20,random_state = 0)
+class RandomForestModel(LinearRegressionModel):
+    def get_model(self):
+        return RandomForestRegressor(n_estimators=20,random_state = 0)
 
 def print_regression_metrics(df_result):
     actual = list(df_result['Actual'])
