@@ -1,10 +1,10 @@
 #import classes necessary
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet 
-from sklearn.metrics import mean_absolute_error, r2_score, explained_variance_score, mean_squared_error
-from sklearn.ensemble import BaggingRegressor, RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, LogisticRegression 
+from sklearn.metrics import mean_absolute_error, r2_score, explained_variance_score, mean_squared_error, precision_score, accuracy_score, recall_score, f1_score
+from sklearn.ensemble import BaggingRegressor, RandomForestRegressor, GradientBoostingRegressor
+
 
 
 #Linear Regression for single asset prediction model
@@ -37,7 +37,7 @@ class LinearRegressionModel(object):
             new_index = pd.to_datetime(date,format = '%Y -%m -%d')
             y_actual = ys.loc[date]
             self.df_result.loc[new_index] = [y_actual,y_pred]
-
+##Different Regression Classes made availabe in a single sheet along with metrics
 class RidgeRegression(LinearRegressionModel):
     def get_model(self):
         return Ridge(Alpha = 0.5)
@@ -67,3 +67,13 @@ def print_regression_metrics(df_result):
     print('mean_squared_error:', mean_squared_error(actual,predicted))
     print('explained_variance_score:', explained_variance_score(actual,predicted))
     print('r2_score:', r2_score(actual,predicted))
+    
+    
+    
+#Logistic Regression Models
+
+
+
+class LogisticRegressionModel(LinearRegressionModel):
+    def get_model(self):
+        return LogisticRegression(solver='lbfgs')
